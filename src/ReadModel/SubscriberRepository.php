@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Newsletter\Domain\Subscriber;
+namespace Newsletter\ReadModel;
 
 interface SubscriberRepository
 {
@@ -11,5 +11,10 @@ interface SubscriberRepository
     /**
      * @throws SubscriberNotFoundException
      */
-    public function get(SubscriberId $id): Subscriber;
+    public function get(string $id): Subscriber;
+
+    /**
+     * @return Subscriber[]
+     */
+    public function all(): array;
 }

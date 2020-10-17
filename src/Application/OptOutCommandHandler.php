@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Newsletter\Application;
 
 use Newsletter\Application\Command\OptOutCommand;
-use Newsletter\Domain\Clock;
 use Newsletter\Domain\Subscriber\SubscriberRepository;
 
-final class OptOutCommandHandler
+final class OptOutCommandHandler implements Command
 {
     private SubscriberRepository $repository;
     private SubscriberEmailDirectory $directory;

@@ -14,20 +14,31 @@ final class SignUpCommandHandler
 {
     private SubscriberRepository $subscriberRepository;
     private SubscriberEmailDirectory $directory;
+    private Clock $clock;
 
-    public function __construct(SubscriberRepository $subscriberRepository, SubscriberEmailDirectory $directory)
-    {
+    public function __construct(
+        SubscriberRepository $subscriberRepository,
+        SubscriberEmailDirectory $directory,
+        Clock $clock
+    ) {
         $this->subscriberRepository = $subscriberRepository;
         $this->directory = $directory;
+        $this->clock = $clock;
     }
 
     public function handle(SignUpCommand $command): void
     {
-        if($this->directory->isEmailAddressAlreadyInUse($command->emailAddress())) {
+        if ($this->directory->isEmailAddressAlreadyInUse($command->emailAddress())) {
             throw new SubscriberEmailAddressAlreadyInUse();
         }
-        $id = SubscriberId::generate();
-        $subscriber = Subscriber::create($id, $command->emailAddress(), $command->subscriberName());
+
+        $subscriber = Subscriber::signUp(
+            SubscriberId::generate(),
+            $command->emailAddress(),
+            $command->subscriberName(),
+            $this->clock->utcNow()
+        );
+
         $this->subscriberRepository->save($subscriber);
     }
 }

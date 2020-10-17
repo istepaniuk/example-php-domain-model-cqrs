@@ -5,62 +5,66 @@ declare(strict_types=1);
 namespace Newsletter\Domain\Subscriber;
 
 use DateTimeInterface;
+use Newsletter\Domain\DomainEvent;
+use Newsletter\Domain\DomainEvents;
+use Newsletter\Domain\Subscriber\Events\SubscriberOptedOut;
+use Newsletter\Domain\Subscriber\Events\SubscriberSignedUp;
 
 final class Subscriber
 {
     private SubscriberId $id;
-    private EmailAddress $email;
-    private SubscriberName $name;
-    private bool $isSubscribed;
-    private ?DateTimeInterface $optedOutAt;
+    private DomainEvents $changes;
 
-    private function __construct(SubscriberId $id, EmailAddress $email, SubscriberName $name)
+    private function __construct()
     {
-        $this->id = $id;
-        $this->email = $email;
-        $this->name = $name;
-        $this->isSubscribed = true;
-        $this->optedOutAt = null;
+        $this->changes = DomainEvents::empty();
     }
 
-    public static function create(SubscriberId $id, EmailAddress $email, SubscriberName $name): self
-    {
-        return new self($id, $email, $name);
+    public static function signUp(
+        SubscriberId $id,
+        EmailAddress $email,
+        SubscriberName $name,
+        DateTimeInterface $signedUpAt
+    ): self {
+        $event = SubscriberSignedUp::withIdEmailAddressAndName($id, $email, $name, $signedUpAt);
+        $subscriber = new self();
+        $subscriber->apply($event);
+
+        return $subscriber;
     }
 
-    public function id(): SubscriberId
+    public static function reconstructFromEventStream(DomainEvents $events): self
     {
-        return $this->id;
+        $agent = new self();
+        $agent->changes = new DomainEvents([], $events->endingAtVersion() + 1);
+
+        foreach ($events as $event) {
+            $agent->mutateWhen($event);
+        }
+
+        return $agent;
     }
 
-    public function email(): EmailAddress
+    private function apply(DomainEvent $event)
     {
-        return $this->email;
+        $this->changes->append($event);
+        $this->mutateWhen($event);
     }
 
-    public function name(): SubscriberName
+    private function mutateWhen(DomainEvent $event): void
     {
-        return $this->name;
+        if ($event instanceof SubscriberSignedUp) {
+            $this->id = $event->subscriberId();
+        }
     }
 
     public function optOut(DateTimeInterface $optedOutAt): void
     {
-        $this->isSubscribed = false;
-        $this->optedOutAt = $optedOutAt;
+        $this->apply(SubscriberOptedOut::withSubscriberId($this->id, $optedOutAt));
     }
 
-    public function isSubscribed(): bool
+    public function changes(): DomainEvents
     {
-        return $this->isSubscribed;
-    }
-
-    public function lastOptedOutAt(): DateTimeInterface
-    {
-        return $this->optedOutAt;
-    }
-
-    public function __toString(): string
-    {
-        return sprintf('%s <%s>', $this->name, $this->email);
+        return $this->changes;
     }
 }
